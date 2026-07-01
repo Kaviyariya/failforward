@@ -6,6 +6,7 @@ import axios from 'axios';
 const defaultTemplate = {
   title: '',
   category: 'Placement',
+  image: '',
   originalFailure: '',
   whyFailed: '',
   howOvercame: '',
@@ -40,6 +41,21 @@ const ShareStoryModal = ({ isOpen, onClose, onSuccess }) => {
       ...prev, 
       [name]: type === 'checkbox' ? checked : value 
     }));
+  };
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Image file size must be less than 5MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, image: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -78,6 +94,7 @@ ${formData.tags ? `**Tags:** ${formData.tags.split(',').map(t => `#${t.trim()}`)
         title: formData.title,
         content: assembledContent,
         category: formData.category,
+        image: formData.image || '',
         isAnonymous: formData.postAnonymously
       };
 
@@ -126,21 +143,46 @@ ${formData.tags ? `**Tags:** ${formData.tags.split(',').map(t => `#${t.trim()}`)
                 <input required type="text" name="title" value={formData.title} onChange={handleChange} className="w-full bg-[#0E1019] border border-white/10 text-white rounded-xl px-4 py-3 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple focus:outline-none transition-colors placeholder-gray-600 text-sm font-medium shadow-sm" placeholder="e.g., Rejected by 15 Companies before landing Google" />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Category</label>
-                <select 
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  className="w-full bg-[#0E1019] border border-white/10 text-white rounded-xl px-4 py-3 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple focus:outline-none transition-colors cursor-pointer text-sm font-medium shadow-sm"
-                >
-                  <option value="Placement">Placement</option>
-                  <option value="Technology">Technology</option>
-                  <option value="Engineering">Engineering</option>
-                  <option value="Career">Career</option>
-                  <option value="Tutorials">Tutorials</option>
-                  <option value="Design">Design</option>
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Category</label>
+                  <select 
+                    name="category"
+                    value={formData.category}
+                    onChange={handleChange}
+                    className="w-full bg-[#0E1019] border border-white/10 text-white rounded-xl px-4 py-3 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple focus:outline-none transition-colors cursor-pointer text-sm font-medium shadow-sm"
+                  >
+                    <option value="Placement">Placement</option>
+                    <option value="Technology">Technology</option>
+                    <option value="Engineering">Engineering</option>
+                    <option value="Career">Career</option>
+                    <option value="Tutorials">Tutorials</option>
+                    <option value="Design">Design</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Cover Image (Optional)</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text"
+                      name="image"
+                      value={formData.image?.startsWith('data:') ? 'Local file selected' : formData.image}
+                      onChange={handleChange}
+                      placeholder="Image URL or upload ->"
+                      className="flex-1 min-w-0 bg-[#0E1019] border border-white/10 text-white rounded-xl px-3 py-3 text-xs focus:border-brand-purple focus:outline-none placeholder-gray-600 font-medium"
+                    />
+                    <label className="bg-brand-purple/10 hover:bg-brand-purple/20 border border-brand-purple/30 text-brand-purpleLight px-3.5 py-3 rounded-xl text-xs font-bold cursor-pointer flex items-center justify-center transition-colors flex-shrink-0 shadow-sm">
+                      Upload
+                      <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                    </label>
+                  </div>
+                  {formData.image && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <img src={formData.image} alt="Preview" className="h-12 w-20 rounded-lg object-cover border border-white/20" />
+                      <button type="button" onClick={() => setFormData(p => ({ ...p, image: '' }))} className="text-xs text-red-400 hover:text-red-300 font-bold">Remove</button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>

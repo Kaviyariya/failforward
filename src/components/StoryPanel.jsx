@@ -249,6 +249,11 @@ const StoryPanel = ({ story, onClose, onStoryUpdated }) => {
         ) : (
           <div>
             <h3 className="text-gray-400 font-bold text-xs uppercase tracking-wider mb-3">Blog Story</h3>
+            {currentStory.image && currentStory.image.trim() !== '' && !currentStory.image.includes('photo-1555066931') && (
+              <div className="mb-6 rounded-2xl overflow-hidden border border-white/10 shadow-2xl max-h-[400px]">
+                <img src={currentStory.image} alt={currentStory.title} className="w-full h-full object-cover" />
+              </div>
+            )}
             <div className="bg-[#0E1019] border border-white/10 rounded-2xl p-5 sm:p-6 relative">
                <div 
                  className="prose prose-invert max-w-none text-gray-200 leading-relaxed text-sm whitespace-pre-line"
