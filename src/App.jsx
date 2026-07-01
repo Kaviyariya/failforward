@@ -13,12 +13,12 @@ function App() {
 
   return (
     <AuthProvider>
-      <div className="flex flex-col min-h-screen bg-brand-bg text-brand-text overflow-hidden h-screen">
+      <div className="flex flex-col min-h-screen bg-[#090A0F] text-white">
         <Navbar onShareClick={() => setIsShareModalOpen(true)} />
         
-        <main className="flex-1 flex overflow-hidden">
+        <main className="flex-1 flex relative w-full">
           {/* Left Side: Main Feed */}
-          <div className={`flex-1 transition-all duration-300 ${selectedStory ? 'mr-0 md:mr-0' : ''}`}>
+          <div className="flex-1 w-full">
             <MainFeed onSelectStory={setSelectedStory} refreshTrigger={refreshFeed} />
           </div>
 
@@ -28,14 +28,19 @@ function App() {
               selectedStory ? 'translate-x-0' : 'translate-x-full'
             }`}
           >
-            <StoryPanel story={selectedStory} onClose={() => setSelectedStory(null)} />
+            <StoryPanel 
+              story={selectedStory} 
+              onClose={() => setSelectedStory(null)} 
+              onStoryUpdated={() => setRefreshFeed(prev => prev + 1)}
+            />
           </div>
 
-          {/* Optional backdrop for mobile when panel is open */}
+          {/* Backdrop for panel when open */}
           {selectedStory && (
             <div 
-              className="md:hidden fixed inset-0 bg-black/50 z-30 transition-opacity"
+              className="fixed inset-0 bg-black/20 backdrop-blur-[1px] z-30 transition-opacity cursor-pointer"
               onClick={() => setSelectedStory(null)}
+              title="Click outside to close panel"
             ></div>
           )}
         </main>

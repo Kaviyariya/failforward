@@ -2,13 +2,13 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --color-brand-bg: #0B0F19;
-  --color-brand-card: #161B22;
-  --color-brand-border: #1F2937;
-  --color-brand-purple: #8B5CF6;
-  --color-brand-purpleLight: #A78BFA;
-  --color-brand-purpleDark: #7C3AED;
-  --color-brand-text: #D1D5DB;
+  --color-brand-bg: #090A0F;
+  --color-brand-card: #0E1019;
+  --color-brand-border: #1E202F;
+  --color-brand-purple: #A855F7;
+  --color-brand-purpleLight: #C084FC;
+  --color-brand-purpleDark: #9333EA;
+  --color-brand-text: #F3F4F6;
   --color-brand-textMuted: #9CA3AF;
 }
 
@@ -21,7 +21,7 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-brand-purple text-white hover:bg-brand-purpleDark transition-colors font-semibold rounded-lg px-6 py-2 flex items-center justify-center;
+    @apply bg-brand-purple text-white hover:bg-brand-purpleDark transition-colors font-semibold rounded-lg px-6 py-2 flex items-center justify-center shadow-lg;
   }
 }
 
@@ -32,16 +32,16 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #0B0F19;
+  background: #090A0F;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #374151;
+  background: #272A3D;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4B5563;
+  background: #3F4460;
 }
 
 /* Hide scrollbar utility */
