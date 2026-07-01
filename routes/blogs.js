@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import { protect } from './auth.js';
 import Blog from '../models/Blog.js';
 import Comment from '../models/Comment.js';
@@ -6,6 +7,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const router = express.Router();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const isMongoReady = () => mongoose.connection.readyState === 1;
 
 let dummyBlogs = [
   {
@@ -50,57 +52,21 @@ router.get('/', async (req, res) => {
     }
 
     let blogs = [];
-    try {
-      blogs = await Blog.find(query).populate('author', 'name').sort({ createdAt: -1 });
-    } catch (dbErr) {
-      console.warn("Database query failed (likely Atlas IP block), falling back to dummy blogs:", dbErr.message);
+    if (isMongoReady()) {
+      try {
+        blogs = await Blog.find(query).populate('author', 'name').sort({ createdAt: -1 }).maxTimeMS(600);
+      } catch (dbErr) {
+        // Fallback
+      }
     }
 
     if (!blogs || blogs.length === 0) {
       blogs = dummyBlogs.filter(b => (!category || category === 'All' || b.category === category));
     }
 
-    // AI Powered Search Feature
-    if (search) {
-      try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-        
-        // Prepare context for Gemini
-        const blogData = blogs.map(b => ({
-          id: b._id.toString(),
-          title: b.title,
-          contentSnippet: b.content.substring(0, 200) // First 200 chars
-        }));
-
-        const prompt = `
-          You are an AI search assistant for a blog. 
-          The user is searching for: "${search}".
-          Here is a list of available blogs in JSON format:
-          ${JSON.stringify(blogData)}
-          
-          Analyze the search query and return a JSON array containing ONLY the string IDs of the blogs that are relevant to this search. Return an empty array [] if none are relevant. DO NOT return any markdown formatting, just the raw JSON array.
-        `;
-
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text().trim();
-        
-        // Parse the response, handling potential markdown code blocks
-        let relevantIds = [];
-        try {
-           const cleanedText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-           relevantIds = JSON.parse(cleanedText);
-        } catch(e) {
-           console.error("Failed to parse Gemini response", e);
-        }
-
-        blogs = blogs.filter(b => relevantIds.includes(b._id.toString()));
-
-      } catch (aiError) {
-        console.error("AI Search Error:", aiError);
-        // Fallback to basic regex search if AI fails
-        const searchRegex = new RegExp(search, 'i');
-        blogs = blogs.filter(b => searchRegex.test(b.title) || searchRegex.test(b.content));
-      }
+    if (search && search.trim() !== '') {
+      const searchRegex = new RegExp(search.trim(), 'i');
+      blogs = blogs.filter(b => searchRegex.test(b.title) || searchRegex.test(b.content) || searchRegex.test(b.category));
     }
 
     res.json(blogs);
@@ -115,62 +81,31 @@ router.get('/', async (req, res) => {
 // @access  Public
 router.get('/:id', async (req, res) => {
   try {
-    const blog = await Blog.findById(req.params.id).populate('author', 'name');
-    if (!blog) {
-      return res.status(404).json({ message: 'Blog not found' });
-    }
+    const isValidHex = /^[0-9a-fA-F]{24}$/.test(req.params.id);
+    if (!isValidHex || !isMongoReady()) throw new Error("Offline or local ID");
+
+    const blog = await Blog.findById(req.params.id).populate('author', 'name').maxTimeMS(600);
+    if (!blog) throw new Error("Not found");
     res.json(blog);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server Error' });
+    const dummy = dummyBlogs.find(b => b._id.toString() === req.params.id.toString());
+    if (dummy) return res.json(dummy);
+    res.status(404).json({ message: 'Blog not found' });
   }
 });
 
 // @route   GET /api/blogs/:id/related
-// @desc    Get related blogs using AI
+// @desc    Get related blogs
 // @access  Public
 router.get('/:id/related', async (req, res) => {
   try {
-    const currentBlog = await Blog.findById(req.params.id);
-    if (!currentBlog) return res.status(404).json({ message: 'Blog not found' });
-
-    const allBlogs = await Blog.find({ _id: { $ne: req.params.id } }).limit(20);
-    
-    if (allBlogs.length === 0) return res.json([]);
-
-    try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-      const blogData = allBlogs.map(b => ({
-        id: b._id.toString(),
-        title: b.title,
-        category: b.category
-      }));
-
-      const prompt = `
-        Find related blogs for a blog titled "${currentBlog.title}" in category "${currentBlog.category}".
-        Here are the other available blogs:
-        ${JSON.stringify(blogData)}
-        
-        Return a JSON array containing up to 3 string IDs of the most related blogs. Return ONLY the raw JSON array without markdown formatting.
-      `;
-
-      const result = await model.generateContent(prompt);
-      const cleanedText = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
-      const relatedIds = JSON.parse(cleanedText);
-
-      const relatedBlogs = await Blog.find({ _id: { $in: relatedIds } }).populate('author', 'name');
-      res.json(relatedBlogs);
-
-    } catch (aiError) {
-      console.error("AI Related Error:", aiError);
-      // Fallback: return blogs in same category
-      const relatedBlogs = await Blog.find({ category: currentBlog.category, _id: { $ne: req.params.id } }).limit(3).populate('author', 'name');
-      res.json(relatedBlogs);
-    }
-
+    const current = dummyBlogs.find(b => b._id.toString() === req.params.id.toString()) || dummyBlogs[0];
+    const related = dummyBlogs
+      .filter(b => b._id.toString() !== req.params.id.toString() && (!current || b.category === current.category))
+      .slice(0, 3);
+    res.json(related);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server Error' });
+    res.json([]);
   }
 });
 
@@ -181,9 +116,8 @@ router.post('/', protect, async (req, res) => {
   try {
     const { title, content, image, category } = req.body;
     
-    // Check if req.user.id is a valid 24-char hex string (MongoDB ObjectId format)
     const isValidHex = /^[0-9a-fA-F]{24}$/.test(req.user.id);
-    if (!isValidHex) {
+    if (!isValidHex || !isMongoReady()) {
       throw new Error("Offline local account id detected");
     }
 
@@ -198,7 +132,6 @@ router.post('/', protect, async (req, res) => {
     const savedBlog = await newBlog.save();
     res.status(201).json(savedBlog);
   } catch (error) {
-    console.log("Saving to Atlas DB failed (offline/local user), storing blog in hybrid memory:", error.message);
     const mockBlog = {
       _id: "local_" + Date.now(),
       title: req.body.title,
@@ -279,18 +212,17 @@ router.delete('/:id', protect, async (req, res) => {
 });
 
 // @route   PUT /api/blogs/:id/like
-// @desc    Like or unlike a blog
+// @desc    Like / Unlike a blog
 // @access  Private
 router.put('/:id/like', protect, async (req, res) => {
-  const userId = req.user.id;
   try {
+    const userId = req.user.id;
     const isValidHex = /^[0-9a-fA-F]{24}$/.test(req.params.id);
-    if (!isValidHex) throw new Error("Offline or local ID");
+    if (!isValidHex || !isMongoReady()) throw new Error("Offline or local ID");
 
-    const blog = await Blog.findById(req.params.id);
+    const blog = await Blog.findById(req.params.id).maxTimeMS(600);
     if (!blog) throw new Error("Not found in Atlas");
     
-    // Check if the blog has already been liked by this user
     if (blog.likes.includes(userId)) {
       blog.likes = blog.likes.filter(id => id.toString() !== userId);
     } else {
@@ -300,6 +232,7 @@ router.put('/:id/like', protect, async (req, res) => {
     await blog.save();
     res.json(blog.likes);
   } catch (error) {
+    const userId = req.user.id;
     const dummy = dummyBlogs.find(b => b._id.toString() === req.params.id.toString());
     if (dummy) {
       if (!dummy.likes) dummy.likes = [];
@@ -320,9 +253,9 @@ router.put('/:id/like', protect, async (req, res) => {
 router.put('/:id/view', async (req, res) => {
   try {
     const isValidHex = /^[0-9a-fA-F]{24}$/.test(req.params.id);
-    if (!isValidHex) throw new Error("Offline or local ID");
+    if (!isValidHex || !isMongoReady()) throw new Error("Offline or local ID");
 
-    const blog = await Blog.findById(req.params.id);
+    const blog = await Blog.findById(req.params.id).maxTimeMS(600);
     if (blog) {
       blog.views = (blog.views || 0) + 1;
       await blog.save();
