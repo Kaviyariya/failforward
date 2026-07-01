@@ -10,7 +10,11 @@ const blogSchema = new mongoose.Schema({
     required: true,
   },
   image: {
-    type: String, // Store image URL
+    type: String, // Store cover image URL
+  },
+  images: {
+    type: [String], // Array of image URLs/data for multiple photos
+    default: [],
   },
   category: {
     type: String,

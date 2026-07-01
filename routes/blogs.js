@@ -114,7 +114,8 @@ router.get('/:id/related', async (req, res) => {
 // @access  Private
 router.post('/', protect, async (req, res) => {
   try {
-    const { title, content, image, category } = req.body;
+    const { title, content, image, images, category } = req.body;
+    const finalImages = Array.isArray(images) && images.length > 0 ? images : (image ? [image] : []);
     
     const isValidHex = /^[0-9a-fA-F]{24}$/.test(req.user.id);
     if (!isValidHex || !isMongoReady()) {
@@ -124,7 +125,8 @@ router.post('/', protect, async (req, res) => {
     const newBlog = new Blog({
       title,
       content,
-      image,
+      image: finalImages[0] || image,
+      images: finalImages,
       category,
       author: req.user.id
     });
@@ -132,11 +134,14 @@ router.post('/', protect, async (req, res) => {
     const savedBlog = await newBlog.save();
     res.status(201).json(savedBlog);
   } catch (error) {
+    const { image, images } = req.body;
+    const finalImages = Array.isArray(images) && images.length > 0 ? images : (image ? [image] : []);
     const mockBlog = {
       _id: "local_" + Date.now(),
       title: req.body.title,
       content: req.body.content,
-      image: req.body.image || "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80",
+      image: finalImages[0] || req.body.image || "",
+      images: finalImages,
       category: req.body.category || "Technology",
       createdAt: new Date().toISOString(),
       author: { name: req.user.name || "Developer" },
@@ -155,7 +160,7 @@ router.post('/', protect, async (req, res) => {
 router.put('/:id', protect, async (req, res) => {
   try {
     const isValidHex = /^[0-9a-fA-F]{24}$/.test(req.params.id);
-    if (!isValidHex || mongoose.connection.readyState !== 1) throw new Error("Offline or local ID");
+    if (!isValidHex || !isMongoReady()) throw new Error("Offline or local ID");
 
     let blog = await Blog.findById(req.params.id);
     if (!blog) throw new Error("Not found in Atlas");
@@ -178,7 +183,8 @@ router.put('/:id', protect, async (req, res) => {
       if (req.body.title) dummy.title = req.body.title;
       if (req.body.content) dummy.content = req.body.content;
       if (req.body.category) dummy.category = req.body.category;
-      if (req.body.image) dummy.image = req.body.image;
+      if (req.body.image !== undefined) dummy.image = req.body.image;
+      if (req.body.images !== undefined) dummy.images = req.body.images;
       return res.json(dummy);
     }
     res.status(404).json({ message: 'Blog not found' });

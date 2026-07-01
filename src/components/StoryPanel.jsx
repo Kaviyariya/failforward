@@ -249,11 +249,23 @@ const StoryPanel = ({ story, onClose, onStoryUpdated }) => {
         ) : (
           <div>
             <h3 className="text-gray-400 font-bold text-xs uppercase tracking-wider mb-3">Blog Story</h3>
-            {currentStory.image && currentStory.image.trim() !== '' && !currentStory.image.includes('photo-1555066931') && (
-              <div className="mb-6 rounded-2xl overflow-hidden border border-white/10 shadow-2xl max-h-[400px]">
-                <img src={currentStory.image} alt={currentStory.title} className="w-full h-full object-cover" />
-              </div>
-            )}
+            {(() => {
+              const photoArray = currentStory.images && currentStory.images.length > 0
+                ? currentStory.images
+                : (currentStory.image && currentStory.image.trim() !== '' && !currentStory.image.includes('photo-1555066931') ? [currentStory.image] : []);
+              if (!photoArray.length) return null;
+              return (
+                <div className="mb-6 space-y-2">
+                  <div className={`grid gap-3 ${photoArray.length === 1 ? 'grid-cols-1' : photoArray.length === 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`}>
+                    {photoArray.map((img, i) => (
+                      <div key={i} className={`rounded-2xl overflow-hidden border border-white/10 shadow-xl bg-black/40 ${photoArray.length === 1 ? 'max-h-[400px]' : 'h-48'}`}>
+                        <img src={img} alt={`${currentStory.title} photo ${i+1}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
             <div className="bg-[#0E1019] border border-white/10 rounded-2xl p-5 sm:p-6 relative">
                <div 
                  className="prose prose-invert max-w-none text-gray-200 leading-relaxed text-sm whitespace-pre-line"

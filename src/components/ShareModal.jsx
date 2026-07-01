@@ -7,6 +7,7 @@ const defaultTemplate = {
   title: '',
   category: 'Placement',
   image: '',
+  images: [],
   originalFailure: '',
   whyFailed: '',
   howOvercame: '',
@@ -44,18 +45,44 @@ const ShareStoryModal = ({ isOpen, onClose, onSuccess }) => {
   };
 
   const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+
+    if ((formData.images?.length || 0) + files.length > 5) {
+      alert("You can upload up to 5 photos maximum per story.");
+      return;
+    }
+
+    files.forEach(file => {
       if (file.size > 5 * 1024 * 1024) {
-        alert("Image file size must be less than 5MB");
+        alert(`File ${file.name} is over 5MB.`);
         return;
       }
       const reader = new FileReader();
       reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, image: reader.result }));
+        setFormData(prev => {
+          const currentImages = prev.images || [];
+          const newImages = [...currentImages, reader.result];
+          return {
+            ...prev,
+            images: newImages,
+            image: newImages[0] || prev.image
+          };
+        });
       };
       reader.readAsDataURL(file);
-    }
+    });
+  };
+
+  const handleRemoveImage = (indexToRemove) => {
+    setFormData(prev => {
+      const newImages = (prev.images || []).filter((_, idx) => idx !== indexToRemove);
+      return {
+        ...prev,
+        images: newImages,
+        image: newImages[0] || ''
+      };
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -94,7 +121,8 @@ ${formData.tags ? `**Tags:** ${formData.tags.split(',').map(t => `#${t.trim()}`)
         title: formData.title,
         content: assembledContent,
         category: formData.category,
-        image: formData.image || '',
+        image: (formData.images && formData.images.length > 0 ? formData.images[0] : formData.image) || '',
+        images: formData.images && formData.images.length > 0 ? formData.images : (formData.image ? [formData.image] : []),
         isAnonymous: formData.postAnonymously
       };
 
@@ -161,25 +189,41 @@ ${formData.tags ? `**Tags:** ${formData.tags.split(',').map(t => `#${t.trim()}`)
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Cover Image (Optional)</label>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Photos (Up to 5)</label>
+                    <span className="text-[10px] text-brand-purpleLight font-semibold">{(formData.images?.length || (formData.image ? 1 : 0))}/5 Photos</span>
+                  </div>
                   <div className="flex gap-2">
                     <input 
                       type="text"
                       name="image"
-                      value={formData.image?.startsWith('data:') ? 'Local file selected' : formData.image}
-                      onChange={handleChange}
-                      placeholder="Image URL or upload ->"
+                      value={formData.images?.length > 1 ? `${formData.images.length} photos attached` : (formData.image?.startsWith('data:') ? 'Local photo attached' : formData.image)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData(p => ({ ...p, image: val, images: val ? [val] : [] }));
+                      }}
+                      placeholder="Image URL or upload multiple ->"
                       className="flex-1 min-w-0 bg-[#0E1019] border border-white/10 text-white rounded-xl px-3 py-3 text-xs focus:border-brand-purple focus:outline-none placeholder-gray-600 font-medium"
                     />
                     <label className="bg-brand-purple/10 hover:bg-brand-purple/20 border border-brand-purple/30 text-brand-purpleLight px-3.5 py-3 rounded-xl text-xs font-bold cursor-pointer flex items-center justify-center transition-colors flex-shrink-0 shadow-sm">
-                      Upload
-                      <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                      Upload Photos
+                      <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
                     </label>
                   </div>
-                  {formData.image && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <img src={formData.image} alt="Preview" className="h-12 w-20 rounded-lg object-cover border border-white/20" />
-                      <button type="button" onClick={() => setFormData(p => ({ ...p, image: '' }))} className="text-xs text-red-400 hover:text-red-300 font-bold">Remove</button>
+                  {(formData.images?.length > 0 ? formData.images : (formData.image ? [formData.image] : [])).length > 0 && (
+                    <div className="mt-2.5 flex flex-wrap gap-2">
+                      {(formData.images?.length > 0 ? formData.images : (formData.image ? [formData.image] : [])).map((imgUrl, idx) => (
+                        <div key={idx} className="relative group">
+                          <img src={imgUrl} alt="Preview" className="h-12 w-16 rounded-lg object-cover border border-white/20 shadow" />
+                          <button 
+                            type="button" 
+                            onClick={() => handleRemoveImage(idx)} 
+                            className="absolute -top-1.5 -right-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold shadow"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
